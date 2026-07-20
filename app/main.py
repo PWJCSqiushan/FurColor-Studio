@@ -58,8 +58,14 @@ def local_roots(request: Request):
 
 
 @app.get("/api/projects")
-def projects():
-    return [] if settings.DEMO else [public_project(value) for value in db.rows("SELECT * FROM projects ORDER BY id DESC")]
+def projects(request: Request):
+    if settings.DEMO:
+        return []
+    require_local(request)
+    values = db.rows("SELECT * FROM projects ORDER BY id DESC")
+    for value in values:
+        authorize_project_paths(value)
+    return [public_project(value) for value in values]
 
 
 class ProjectIn(BaseModel):
@@ -91,8 +97,11 @@ def project_create(payload: ProjectIn, request: Request):
 
 
 @app.get("/api/projects/{project_id}/photos")
-def photos(project_id: int):
-    return [] if settings.DEMO else db.rows("SELECT id,project_id,stem,selection FROM photos WHERE project_id=? ORDER BY stem", (project_id,))
+def photos(project_id: int, request: Request):
+    if settings.DEMO:
+        return []
+    require_local(request)
+    return db.rows("SELECT id,project_id,stem,selection FROM photos WHERE project_id=? ORDER BY stem", (project_id,))
 
 
 @app.post("/api/projects/{project_id}/scan")
@@ -128,20 +137,25 @@ def thumb(project_id: int, stem: str):
 def job(project_id: int, kind: str, request: Request):
     try:
         require_local(request)
+        authorize_project_paths(services.project(project_id))
         return {"job_id": services.start_job(project_id, kind)}
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
 
 
 @app.get("/api/projects/{project_id}/jobs")
-def jobs(project_id: int):
-    return [] if settings.DEMO else db.rows("SELECT * FROM jobs WHERE project_id=? ORDER BY id DESC", (project_id,))
+def jobs(project_id: int, request: Request):
+    if settings.DEMO:
+        return []
+    require_local(request)
+    return db.rows("SELECT * FROM jobs WHERE project_id=? ORDER BY id DESC", (project_id,))
 
 
 @app.post("/api/projects/{project_id}/deliver")
 def delivery(project_id: int, payload: DeliveryIn, request: Request):
     try:
         require_local(request)
+        authorize_project_paths(services.project(project_id))
         return services.deliver(project_id, payload.acknowledgements, payload.name, payload.make_zip)
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
