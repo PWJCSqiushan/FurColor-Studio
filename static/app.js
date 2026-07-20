@@ -4,7 +4,7 @@ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function toast(message){const box=$('#toast');box.textContent=message;box.classList.add('show');setTimeout(()=>box.classList.remove('show'),4000)}
 function show(id){$$('.page').forEach(x=>x.classList.toggle('active',x.id===id));$$('nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===id));$('#title').textContent=$(`[data-page="${id}"]`)?.textContent||'FurColor Studio';if(id==='culling')loadPhotos()}
 $$('nav button').forEach(x=>x.onclick=()=>show(x.dataset.page));
-async function api(url,options={}){const response=await fetch(url,options);let body;try{body=await response.json()}catch{body={detail:await response.text()}}if(!response.ok)throw Error(body.detail||'请求失败');return body}
+async function api(url,options={}){const headers=new Headers(options.headers||{});if(!window.FURCOLOR.demo&&(url.startsWith('/api/local/')||(options.method&&options.method.toUpperCase()!=='GET')))headers.set('X-FurColor-Local',window.FURCOLOR.token);const response=await fetch(url,{...options,headers});let body;try{body=await response.json()}catch{body={detail:await response.text()}}if(!response.ok)throw Error(body.detail||'请求失败');return body}
 async function loadRoots(){
   if(window.FURCOLOR.demo)return;
   const result=await api('/api/local/roots',{headers:{'X-FurColor-Local':window.FURCOLOR.token}});

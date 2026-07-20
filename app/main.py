@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from . import __version__, db, services, settings
 from .local_tools import pick
-from .security import authorize_picker_path, authorized_roots, public_project
+from .security import authorize_picker_path, authorize_project_paths, authorized_roots, public_project
 
 ROOT = Path(__file__).resolve().parent.parent
 app = FastAPI(title="FurColor Studio", version=__version__, docs_url=None if settings.DEMO else "/api/docs", redoc_url=None)
@@ -80,9 +80,12 @@ class DeliveryIn(BaseModel):
 
 
 @app.post("/api/projects")
-def project_create(payload: ProjectIn):
+def project_create(payload: ProjectIn, request: Request):
     try:
-        return {"id": services.create_project(payload.model_dump())}
+        require_local(request)
+        values = payload.model_dump()
+        authorize_project_paths(values)
+        return {"id": services.create_project(values)}
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -93,16 +96,18 @@ def photos(project_id: int):
 
 
 @app.post("/api/projects/{project_id}/scan")
-def scan(project_id: int):
+def scan(project_id: int, request: Request):
     try:
+        require_local(request)
         return {"count": services.scan(project_id)}
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
 
 
 @app.post("/api/projects/{project_id}/selection/{stem}/{value}")
-def select(project_id: int, stem: str, value: str):
+def select(project_id: int, stem: str, value: str, request: Request):
     try:
+        require_local(request)
         services.set_selection(project_id, stem, value)
         return {"ok": True}
     except Exception as exc:
@@ -120,8 +125,9 @@ def thumb(project_id: int, stem: str):
 
 
 @app.post("/api/projects/{project_id}/jobs/{kind}")
-def job(project_id: int, kind: str):
+def job(project_id: int, kind: str, request: Request):
     try:
+        require_local(request)
         return {"job_id": services.start_job(project_id, kind)}
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -133,8 +139,9 @@ def jobs(project_id: int):
 
 
 @app.post("/api/projects/{project_id}/deliver")
-def delivery(project_id: int, payload: DeliveryIn):
+def delivery(project_id: int, payload: DeliveryIn, request: Request):
     try:
+        require_local(request)
         return services.deliver(project_id, payload.acknowledgements, payload.name, payload.make_zip)
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc

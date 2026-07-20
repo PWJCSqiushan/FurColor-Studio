@@ -46,14 +46,14 @@ def authorized_roots() -> tuple[Path, ...]:
     return tuple(unique.values())
 
 
-def authorize_picker_path(raw: str, kind: str) -> Path:
+def authorize_picker_path(raw: str, kind: str, *, must_exist: bool = True) -> Path:
     if settings.DEMO:
         raise PermissionError("Cloud demo mode cannot authorize local paths")
     if kind not in {"directory", "watermark", "manifest"}:
         raise ValueError("Unknown picker type")
     if not raw or "\x00" in raw:
         raise ValueError("No path was selected")
-    selected = Path(raw).expanduser().resolve(strict=True)
+    selected = Path(raw).expanduser().resolve(strict=must_exist)
     root = selected.parent if kind in {"watermark", "manifest"} else selected
     if _is_sensitive(root):
         raise PermissionError("Sensitive directory access denied")
@@ -69,6 +69,28 @@ def authorize_picker_path(raw: str, kind: str) -> Path:
         )
         temporary.replace(store)
     return root
+
+
+def authorize_project_paths(values: dict[str, str]) -> tuple[Path, ...]:
+    """Authorize paths submitted by the trusted local UI."""
+    if settings.DEMO:
+        raise PermissionError("Cloud mode cannot authorize local paths")
+    authorized: list[Path] = []
+    for key in ("source_dir", "edited_dir", "analysis_dir", "output_dir"):
+        raw = str(values.get(key, "")).strip()
+        if raw:
+            authorized.append(
+                authorize_picker_path(
+                    raw,
+                    "directory",
+                    must_exist=key in {"source_dir", "edited_dir"},
+                )
+            )
+    for key, kind in (("watermark_path", "watermark"), ("manifest_path", "manifest")):
+        raw = str(values.get(key, "")).strip()
+        if raw:
+            authorized.append(authorize_picker_path(raw, kind, must_exist=True))
+    return tuple(authorized)
 
 
 def safe_path(raw: str, must_exist: bool = False) -> Path:
