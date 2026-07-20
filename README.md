@@ -1,6 +1,5 @@
 # FurColor Studio
 
-[![Tests](https://github.com/PWJCSqiushan/FurColor-Studio/actions/workflows/tests.yml/badge.svg)](https://github.com/PWJCSqiushan/FurColor-Studio/actions/workflows/tests.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4.svg)](#五分钟安装并启动)
 
