@@ -1,60 +1,242 @@
 # FurColor Studio
 
-面向兽装活动摄影的、本地优先批量后期工作站。它把图片源选择、选片、隐私复核、参考样片驱动的白平衡与色彩映射、主体曝光保护、逐图眼睛蒙版、水印和可审计交付串成一条流程。
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D4.svg)](#五分钟安装并启动)
 
-## 安全边界
+FurColor Studio 是一个面向兽装活动摄影的、本地优先 AI 批量后期工作站。它把图片源选择、正选/反选、真人脸隐私复核、参考样片驱动调色、逐图眼睛蒙版、水印、人工质检和可校验交付串成一条完整流程。
 
-- **本地工作站**处理真实照片，只监听 `127.0.0.1`；照片、路径、标注、记忆模型、水印和数据库不进入 Git。
-- **服务器演示版**只展示 UI，不提供上传、路径读取、模型处理或交付 API。
-- 系统是摄影师辅助工具。商业交付必须完成人脸、蒙版、曝光和水印四项人工质检。
+> 当前版本是摄影师辅助工具，不是无人值守的最终交付系统。真实照片只应在本地工作站处理，商业交付前必须人工复核。
 
-## Windows 快速开始
+## 它能做什么
 
-需要 Python 3.11 或 3.12。在 PowerShell 进入项目目录：
+- 从 JPG、JPEG、ARW 原片目录建立项目并生成本地缩略图；
+- 使用正选或反选模式提前淘汰废片；
+- 从同名手修参考 JPG 自动建立基础参考清单；
+- 分析白平衡、主体曝光、白毛高光、黑毛细节和人脸隐私风险；
+- 人工纠正“兽耳被识别人脸”等误检，并在本地自动更新记忆校准器；
+- 为每张照片分别标注大小、形状、角度不同的兽装眼睛；
+- 批量完成 V3.3 风格映射、眼睛增强和可选水印；
+- 通过四项强制人工质检后生成 JPG、ZIP、`manifest.json` 和 SHA-256 清单。
+
+## 五分钟安装并启动
+
+### 前提
+
+- Windows 10/11；
+- Git；
+- 一个已经存在的照片根目录，例如 `D:\Photography`。
+
+### 新用户：复制整个代码块到 PowerShell
+
+把示例目录替换成你自己的照片根目录，然后粘贴运行：
 
 ```powershell
-& '.\install_local.ps1'
+git clone https://github.com/PWJCSqiushan/FurColor-Studio.git
+Set-Location '.\FurColor-Studio'
+powershell -ExecutionPolicy Bypass -File '.\install_local.ps1' -AllowedRoots 'D:\Photography' -InstallPython -DownloadFaceModel -Launch
 ```
 
-编辑本地 `.env`，把 `FURCOLOR_ALLOWED_ROOTS` 改成允许软件访问的照片根目录；多个根目录使用英文分号分隔。`.env` 已被 Git 忽略。
-
-准备兼容的 YuNet ONNX 人脸模型，并在确认模型许可证后执行：
+多个照片根目录使用英文分号：
 
 ```powershell
-& '.\install_local.ps1' -FaceModelPath '你本机的模型文件.onnx'
+powershell -ExecutionPolicy Bypass -File '.\install_local.ps1' -AllowedRoots 'D:\Photography;E:\Events' -InstallPython -DownloadFaceModel -Launch
+```
+
+安装脚本会自动完成：
+
+1. 寻找 Python 3.12/3.11；找不到时通过 `winget` 为当前用户安装 Python 3.12；
+2. 创建独立 `.venv`；
+3. 安装锁定依赖；
+4. 写入仅限本机的路径白名单 `.env`；
+5. 从 OpenCV 官方仓库下载固定版本 YuNet；
+6. 验证模型 SHA-256；
+7. 运行环境自检；
+8. 打开 `http://127.0.0.1:8899`。
+
+YuNet 目录采用 MIT License，模型来源和校验值见 [第三方声明](THIRD_PARTY_NOTICES.md)。OpenCV 官方也将该模型作为 `FaceDetectorYN` 的下载来源。[OpenCV 文档](https://docs.opencv.org/master/df/d20/classcv_1_1FaceDetectorYN.html)
+
+### 已安装用户
+
+以后启动只需要：
+
+```powershell
+Set-Location '.\FurColor-Studio'
 & '.\run_local.ps1'
 ```
 
-浏览器将打开 `http://127.0.0.1:8899`。完整流程：
-
-`新建项目 → 选择原片/参考/水印 → 正选或反选 → 隐私分析 → 人脸复核与自动记忆 → 逐图眼睛蒙版 → V3.3 渲染 → 四项质检 → 交付`
-
-详细说明见 [操作手册](docs/USER_GUIDE.md)、[人脸记忆模型说明](docs/MODEL_CARD.md) 与 [隐私政策](PRIVACY.md)。
-
-## 云端安全演示
-
-```bash
-docker compose -f docker-compose.demo.yml up -d --build
-```
-
-容器只绑定宿主机 `127.0.0.1:8899`。公网发布必须先审计服务器，再通过已有反向代理添加独立域名或路径；脚本不会修改 Nginx、宝塔、腾讯云防火墙或已有项目。服务器步骤见 [隔离部署手册](deploy/README_TENCENT.md)。
-
-## 发布前检查
+更新代码后重新同步依赖：
 
 ```powershell
-& '.\.venv\Scripts\python.exe' '.\scripts\security_audit.py'
-& '.\.venv\Scripts\python.exe' -m pytest -q
-git status --short
+git pull
+& '.\install_local.ps1'
 ```
 
-脱敏审计必须返回 `PASS`。禁止用 `git add -f` 强制加入照片、模型、`.env`、数据库或记忆文件。
+环境有问题时：
 
-## 许可证与资产边界
+```powershell
+& '.\doctor.ps1'
+```
 
-FurColor Studio 源代码采用 [Apache License 2.0](LICENSE)。可以使用、修改、分发和商业化代码，但必须遵守许可证中的版权、许可证副本、修改声明和专利条款。
+## 第一次项目：从原片到交付
 
-许可证不覆盖用户照片、活动素材、水印、私有标注、人脸记忆、训练数据及未随仓库分发的模型权重；这些资产可能有独立权利和使用条件。FurColor 名称、图标和未来示例图的商标、肖像权及著作权仍需分别管理。
+### 1. 准备文件夹
 
-## 技术栈
+推荐把原片、参考、分析、草稿和交付完全分开：
 
-FastAPI、SQLite、Pillow、OpenCV、rawpy，以及 FurColor V3.3 本地图像引擎。
+```text
+D:\Photography\2026-Event\
+├─ Originals\       # 相机原片，禁止覆盖
+├─ References\      # 你在 Lightroom 中手修并导出的参考 JPG
+├─ Analysis\        # FurColor 分析报告和配方
+├─ Drafts\          # AI 修图草稿
+└─ Delivery\        # 最终交付包，由程序生成
+```
+
+先在 Lightroom 中手修至少一张有代表性的照片并导出 JPG。参考 JPG 必须与对应原片同名，例如：
+
+```text
+Originals\DSC01151.ARW
+References\DSC01151.jpg
+```
+
+项目表单里的“参考样片清单”可以留空，FurColor 会从同名原片/手修 JPG 自动生成基础清单。高级用户也可以选择自定义 JSON。
+
+### 2. 新建项目
+
+打开“新建项目”，依次填写或点击“浏览”：
+
+| 字段 | 填什么 | 是否必需 |
+|---|---|---|
+| 项目名称 | 活动名或交付批次 | 是 |
+| 原片目录 | `Originals` | 是 |
+| 手修参考目录 | `References` | 是，至少一组同名参考 |
+| 分析结果目录 | `Analysis` | 是 |
+| 修图输出目录 | `Drafts` | 是 |
+| 水印 PNG | 透明背景签名，可留空 | 否 |
+| 参考样片清单 | 留空自动生成，或选择高级 JSON | 否 |
+| 选片模式 | 正选或反选 | 是 |
+
+系统会拒绝让分析/输出目录与原片目录重叠，避免覆盖原片或重复扫描。
+
+### 3. 选片
+
+- **反选模式**：默认处理全部照片，只把明确标成“废片”的照片排除。适合保留率较高的活动摄影。
+- **正选模式**：只有明确标成“保留”的照片才进入后续步骤。适合大量连拍和严格精选。
+- **默认**：恢复到当前模式的默认行为。
+
+选片结果会同时控制分析、人脸复核、眼睛标注、渲染和交付，不会再弹出已淘汰的数百张照片。
+
+### 4. 按顺序处理
+
+```mermaid
+flowchart LR
+    A[选择图片源] --> B[正选或反选]
+    B --> C[隐私与参考分析]
+    C --> D[人工人脸复核]
+    D --> E[逐图眼睛蒙版]
+    E --> F[V3.3 批量渲染]
+    F --> G[四项人工质检]
+    G --> H[ZIP + manifest + SHA-256]
+```
+
+不要跳步：
+
+1. 点击“开始分析”，等待任务完成；
+2. 点击“打开人脸复核”，把候选标成真人脸或兽装误检；
+3. 点击“标注兽装眼睛”，为每张照片分别绘制轮廓；
+4. 点击“开始渲染”，生成 AI 草稿；
+5. 用图片浏览器检查草稿；
+6. 完成四项质检并生成交付包。
+
+人脸记忆至少需要 2 个 `human` 和 2 个 `fursuit` 标签才会启用；它只校准候选概率，不能替代人工隐私判断。
+
+### 5. 四项交付质检
+
+后端会强制确认，少一项都不能生成交付包：
+
+- 背景真人脸、镜面和屏幕反射；
+- 兽耳误打码与眼睛蒙版边缘；
+- 白平衡、白毛高光、黑毛细节和主体曝光；
+- 水印、胸牌、二维码和最终裁切。
+
+交付包包含成片、ZIP 和 `manifest.json`。清单记录选片模式、人工质检声明、文件大小和逐文件 SHA-256。
+
+## 本地隐私边界
+
+- 完整版默认只监听 `127.0.0.1`；
+- 云端 demo 没有照片上传、路径读取或处理 API；
+- `.env`、照片、模型、人脸反馈、眼睛标注、数据库和交付文件均被 Git 忽略；
+- 浏览目录只能位于 `FURCOLOR_ALLOWED_ROOTS` 或程序私有运行目录；
+- 不要使用 `git add -f` 绕过保护。
+
+## 常见问题
+
+### 提示 `Path is outside FURCOLOR_ALLOWED_ROOTS`
+
+重新运行安装脚本，加入需要访问的根目录：
+
+```powershell
+& '.\install_local.ps1' -AllowedRoots 'D:\Photography;E:\Events'
+```
+
+### 提示找不到参考样片
+
+确认 `References` 中至少有一张 JPG，并与 `Originals` 中的 JPG/ARW 使用相同文件名主体。
+
+### 提示缺少 YuNet
+
+```powershell
+& '.\install_local.ps1' -DownloadFaceModel
+```
+
+### winget 误报 Python 已安装或安装卡住
+
+如果电脑里已经有 Python 3.11/3.12，但启动器没有发现，可直接指定 `python.exe`。这只用指定的解释器创建项目独立环境，不会修改原环境：
+
+```powershell
+& '.\install_local.ps1' `
+  -PythonPath 'C:\path\to\python.exe' `
+  -AllowedRoots 'D:\Photography' `
+  -DownloadFaceModel -Launch
+```
+
+### 8899 端口被占用
+
+关闭旧 FurColor 窗口，或修改 `.env` 的 `FURCOLOR_PORT`。不要把本地完整版绑定到 `0.0.0.0`。
+
+### PowerShell 阻止脚本运行
+
+只对本次命令使用绕过策略：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File '.\install_local.ps1' -AllowedRoots 'D:\Photography' -DownloadFaceModel -Launch
+```
+
+## 当前限制
+
+- 白平衡、曝光和人脸模型仍需要跨会场继续积累验证集；
+- 眼睛识别目前包含人工标注环节；
+- RAW 输出是派生 JPG，不直接修改 Lightroom Catalog；
+- 服务器版本是无照片的产品演示，不是多人 SaaS；
+- 公开发布或商业交付的合规责任仍由操作者承担。
+
+## 开发与测试
+
+```powershell
+py -3.12 -m venv .venv
+& '.\.venv\Scripts\python.exe' -m pip install -r requirements-dev.txt
+& '.\.venv\Scripts\python.exe' -m pytest -q
+& '.\.venv\Scripts\python.exe' scripts\security_audit.py
+```
+
+更多文档：
+
+- [完整操作手册](docs/USER_GUIDE.md)
+- [人脸记忆模型说明](docs/MODEL_CARD.md)
+- [隐私政策](PRIVACY.md)
+- [腾讯云隔离部署手册](deploy/README_TENCENT.md)
+- [安全报告方式](SECURITY.md)
+
+## License
+
+源代码采用 [Apache License 2.0](LICENSE)。用户照片、水印、活动素材、私有标注、训练数据、人脸记忆和未随仓库分发的模型权重不自动包含在该授权中。
