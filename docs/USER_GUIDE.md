@@ -20,7 +20,13 @@ powershell -ExecutionPolicy Bypass -File '.\install_local.ps1' -AllowedRoots 'D:
 -AllowedRoots 'D:\Photography;E:\Events'
 ```
 
-安装器不会扫描照片，只会把这些目录记录成本地访问白名单。
+安装器不会扫描照片，只会把这些目录记录成本地访问白名单。安装完成后，原生“浏览”按钮还可以动态授权更多目录：
+
+- 原片、参考、分析、输出、水印和清单可以位于不同磁盘；
+- 每次选择的目录都会写入本机 `runtime/authorized_roots.json`；
+- 移动硬盘盘符变化后重新选择即可；
+- 动态授权必须由本机原生选择器和临时本地令牌共同完成；
+- `.ssh`、`.aws`、`.git`、AppData、credentials 等敏感目录始终禁止访问。
 
 ### 1.2 安装器做了什么
 

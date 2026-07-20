@@ -171,7 +171,7 @@ flowchart LR
 - 完整版默认只监听 `127.0.0.1`；
 - 云端 demo 没有照片上传、路径读取或处理 API；
 - `.env`、照片、模型、人脸反馈、眼睛标注、数据库和交付文件均被 Git 忽略；
-- 浏览目录只能位于 `FURCOLOR_ALLOWED_ROOTS` 或程序私有运行目录；
+- 安装时配置的根目录和本机原生选择器明确选过的目录可以访问；授权记录只保存在本地，敏感系统目录始终拒绝；
 - 不要使用 `git add -f` 绕过保护。
 
 ## 常见问题
@@ -209,11 +209,21 @@ Set-Location '.\FurColor-Studio'
 
 ### 提示 `Path is outside FURCOLOR_ALLOWED_ROOTS`
 
-重新运行安装脚本，加入需要访问的根目录：
+新版支持安全的动态多磁盘授权。请对原片、参考样片、分析、输出、水印和清单字段分别点击一次“浏览”：
+
+1. Windows 原生选择器中选中的目录会立即授权；
+2. 水印和 JSON 清单会授权其所在目录；
+3. 授权记录保存在本机 `runtime/authorized_roots.json`，重启后仍有效；
+4. 不同字段可以位于不同硬盘或移动硬盘；
+5. `.ssh`、`.aws`、`.git`、AppData、credentials 等敏感目录不能授权。
+
+如果希望在安装阶段一次授权多个固定根目录，也可以使用英文分号：
 
 ```powershell
 & '.\install_local.ps1' -AllowedRoots 'D:\Photography;E:\Events'
 ```
+
+不要把整个系统盘加入白名单；移动硬盘盘符改变后，用“浏览”重新选择即可。
 
 ### 提示找不到参考样片
 
