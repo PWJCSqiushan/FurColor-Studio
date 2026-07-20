@@ -1,0 +1,27 @@
+{
+  "count": 1,
+  "items": [
+    {
+      "file": "EXAMPLE_0001.ARW",
+      "edited_jpeg": "EXAMPLE_0001.jpg",
+      "has_masks": false,
+      "has_ai_masks": false,
+      "has_retouch": false,
+      "settings": {
+        "CameraProfile": "Adobe Standard",
+        "Temperature": 4300,
+        "Tint": 5,
+        "Exposure2012": 0.0,
+        "Highlights2012": -30,
+        "Shadows2012": 10,
+        "Whites2012": 5,
+        "Blacks2012": -5,
+        "Texture": 10,
+        "Clarity2012": 3,
+        "Dehaze": 2,
+        "Vibrance": 5,
+        "Saturation": 0
+      }
+    }
+  ]
+}

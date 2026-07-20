@@ -1,0 +1,14 @@
+.git
+.env
+.venv
+runtime
+data
+deliveries
+engine/models
+**/*.jpg
+**/*.jpeg
+**/*.png
+**/*.arw
+**/*.zip
+**/*.pem
+**/*.key

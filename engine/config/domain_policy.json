@@ -1,0 +1,35 @@
+{
+  "version": "2026-07-19-mvp1",
+  "subject": "fursuit_event_photography",
+  "human_face": {
+    "auto_publish": false,
+    "default_preview_action": "blur_detected_regions",
+    "high_risk_action": "manual_review_crop_or_darken",
+    "review_risk_action": "manual_review",
+    "store_identity_embedding": false,
+    "network_transfer": false,
+    "note": "No detection result can prove an image is safe to publish."
+  },
+  "fursuit_identity": {
+    "preserve_fur_colors": true,
+    "preserve_markings": true,
+    "preserve_eye_and_nose_detail": true,
+    "allow_multi_identity_per_photo": true,
+    "never_link_to_real_person_identity": true
+  },
+  "editing": {
+    "overwrite_source": false,
+    "write_lightroom_catalog": false,
+    "all_actions_reversible": true,
+    "require_human_review_before_delivery": true
+  },
+  "background_privacy_review": [
+    "human_faces",
+    "name_badges",
+    "qr_codes",
+    "room_numbers",
+    "phone_or_computer_screens",
+    "minors",
+    "vehicle_plates"
+  ]
+}
