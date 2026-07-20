@@ -10,7 +10,8 @@ import threading
 import zipfile
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import Image
+from engine.src import furcolor_cli as image_core
 
 from . import db, settings
 from .security import safe_path, safe_stem
@@ -93,10 +94,8 @@ def thumbnail(project_id: int, stem: str) -> Path:
     if target.exists() and target.stat().st_mtime >= source.stat().st_mtime:
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
-    with Image.open(source) as image:
-        image = ImageOps.exif_transpose(image).convert("RGB")
-        image.thumbnail((640, 640), Image.Resampling.LANCZOS)
-        image.save(target, "JPEG", quality=82, optimize=True)
+    image = Image.fromarray(image_core.load_rgb(source, 640))
+    image.save(target, "JPEG", quality=82, optimize=True)
     return target
 
 

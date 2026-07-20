@@ -15,6 +15,7 @@ from PIL import Image
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from selection_cli import load_selection, selected_stems
+from furcolor_cli import load_rgb
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -104,9 +105,8 @@ def make_handler(store: EyeStore):
                 if stem not in store.source:
                     self.send_error(404, "Image is not selected"); return
                 try:
-                    with Image.open(store.source[stem]) as original:
-                        image = original.convert("RGB"); image.thumbnail((1800, 1200), Image.Resampling.LANCZOS)
-                        bio = BytesIO(); image.save(bio, "JPEG", quality=86); data = bio.getvalue()
+                    image = Image.fromarray(load_rgb(store.source[stem], 1800))
+                    bio = BytesIO(); image.save(bio, "JPEG", quality=86); data = bio.getvalue()
                 except Exception as exc:
                     self.send_error(500, str(exc)); return
                 self.send_response(200); self.send_header("Content-Type", "image/jpeg")

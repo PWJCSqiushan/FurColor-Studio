@@ -14,6 +14,9 @@ def init():
         CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY AUTOINCREMENT,project_id INTEGER,event TEXT NOT NULL,detail TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL);""")
         cols={r[1] for r in c.execute("PRAGMA table_info(projects)")}
         if "manifest_path" not in cols:c.execute("ALTER TABLE projects ADD COLUMN manifest_path TEXT NOT NULL DEFAULT ''")
+        c.execute("""UPDATE jobs SET status='failed',progress=1,
+        log=CASE WHEN log='' THEN 'Interrupted by FurColor service restart.' ELSE log || char(10) || 'Interrupted by FurColor service restart.' END,
+        updated_at=? WHERE status IN ('queued','running')""",(now(),))
 def rows(sql,params=()):
     with connect() as c:return [dict(x) for x in c.execute(sql,params).fetchall()]
 def one(sql,params=()):
