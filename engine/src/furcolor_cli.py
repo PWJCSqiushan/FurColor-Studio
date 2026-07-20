@@ -122,8 +122,12 @@ def build_anchors(source: Path, edited: Path, manifest_path: Path) -> list[Ancho
     manifest = load_manifest(manifest_path)
     anchors: list[Anchor] = []
     for stem, item in sorted(manifest.items()):
-        original = next((source / f"{stem}{ext}" for ext in (".JPG", ".jpg") if (source / f"{stem}{ext}").exists()), None)
-        edited_file = next((edited / f"{stem}{ext}" for ext in (".jpg", ".JPG", ".jpeg") if (edited / f"{stem}{ext}").exists()), None)
+        original_candidates = [source / str(item.get("file", ""))]
+        original_candidates.extend(source / f"{stem}{ext}" for ext in (".JPG", ".jpg", ".JPEG", ".jpeg", ".ARW", ".arw"))
+        edited_candidates = [edited / str(item.get("edited_jpeg", ""))]
+        edited_candidates.extend(edited / f"{stem}{ext}" for ext in (".jpg", ".JPG", ".jpeg", ".JPEG"))
+        original = next((path for path in original_candidates if path.name and path.is_file()), None)
+        edited_file = next((path for path in edited_candidates if path.name and path.is_file()), None)
         if original is None or edited_file is None:
             continue
         orig_rgb = load_rgb(original, 1000)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import shutil
 import subprocess
@@ -149,7 +150,8 @@ def start_job(project_id: int, kind: str) -> int:
         db.run("UPDATE jobs SET status='running',updated_at=? WHERE id=?", (db.now(), job_id))
         command = [_engine_python(), str(script), "--config", str(config)]
         try:
-            result = subprocess.run(command, text=True, capture_output=True, encoding="utf-8", errors="replace")
+            child_env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+            result = subprocess.run(command, text=True, capture_output=True, encoding="utf-8", errors="replace", env=child_env)
             log = (result.stdout + "\n" + result.stderr)[-80000:]
             status = "complete" if result.returncode == 0 else "failed"
         except Exception as exc:
