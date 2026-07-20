@@ -31,8 +31,13 @@ FurColor Studio 是一个面向兽装活动摄影的、本地优先 AI 批量后
 把示例目录替换成你自己的照片根目录，然后粘贴运行：
 
 ```powershell
-git clone https://github.com/PWJCSqiushan/FurColor-Studio.git
-Set-Location '.\FurColor-Studio'
+$repo = Join-Path $HOME 'FurColor-Studio'
+if (Test-Path -LiteralPath $repo) {
+  throw "目标目录已存在：$repo。不要继续运行旧脚本，请先阅读下方“目标目录已存在”说明。"
+}
+git clone https://github.com/PWJCSqiushan/FurColor-Studio.git $repo
+if ($LASTEXITCODE -ne 0) { throw '克隆失败，安装已停止。不要进入旧目录继续执行。' }
+Set-Location -LiteralPath $repo
 powershell -ExecutionPolicy Bypass -File '.\install_local.ps1' -AllowedRoots 'D:\Photography' -InstallPython -DownloadFaceModel -Launch
 ```
 
@@ -170,6 +175,37 @@ flowchart LR
 - 不要使用 `git add -f` 绕过保护。
 
 ## 常见问题
+
+### `destination path 'FurColor-Studio' already exists`
+
+这表示克隆**没有发生**。不要忽略 `fatal` 后继续进入该目录，否则可能运行到旧版脚本。
+
+先检查现有目录是否是真正的 Git 仓库：
+
+```powershell
+git -C "$HOME\FurColor-Studio" log -1 --oneline
+git -C "$HOME\FurColor-Studio" remote -v
+```
+
+如果两条命令都正常，直接更新：
+
+```powershell
+Set-Location "$HOME\FurColor-Studio"
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw '更新失败，请停止安装并检查上方错误。' }
+& '.\install_local.ps1'
+```
+
+如果提示“没有任何提交”、不是 Git 仓库或目录里只是旧文件，先备份再重新克隆：
+
+```powershell
+Set-Location $HOME
+$backup = 'FurColor-Studio_backup_' + (Get-Date -Format 'yyyyMMdd_HHmmss')
+Rename-Item -LiteralPath '.\FurColor-Studio' -NewName $backup
+git clone https://github.com/PWJCSqiushan/FurColor-Studio.git
+if ($LASTEXITCODE -ne 0) { throw "克隆失败；旧文件仍安全保存在 $backup。" }
+Set-Location '.\FurColor-Studio'
+```
 
 ### 提示 `Path is outside FURCOLOR_ALLOWED_ROOTS`
 
