@@ -264,7 +264,8 @@ powershell -ExecutionPolicy Bypass -File '.\install_local.ps1' -AllowedRoots 'D:
 - 眼睛识别目前包含人工标注环节；
 - RAW 输出是派生 JPG，不直接修改 Lightroom Catalog；
 - 服务器版本是无照片的产品演示，不是多人 SaaS；
-- 公开发布或商业交付的合规责任仍由操作者承担。
+- 公开发布或商业交付的合规责任仍由操作者承担；
+- 下载与交付环节可能存在潜在的兼容性问题。
 
 ## 开发与测试
 
