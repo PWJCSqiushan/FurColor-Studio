@@ -28,7 +28,14 @@ def index(request: Request):
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "mode": settings.MODE, "version": __version__, "uploads": False, "port": settings.PORT}
+    subject = {"available": False, "model": "disabled"} if settings.DEMO else services.subject_status()
+    return {
+        "ok": True, "mode": settings.MODE, "version": __version__, "uploads": False, "port": settings.PORT,
+        "subject_intelligence": {
+            "available": bool(subject.get("available")),
+            "model": subject.get("model", "Fursee"),
+        },
+    }
 
 
 def require_local(request: Request) -> None:
@@ -132,6 +139,49 @@ def thumb(project_id: int, stem: str):
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc
 
+
+@app.get("/api/local/subject-status")
+def local_subject_status(request: Request):
+    require_local(request)
+    status = services.subject_status()
+    return {
+        "configured": status.get("configured", False),
+        "ready": status.get("ready", False),
+        "python_ready": status.get("python_ready", False),
+        "available": status.get("available", False),
+        "verified": status.get("verified", False),
+        "model": status.get("model", "Fursee"),
+        "error": status.get("error", ""),
+    }
+
+
+@app.get("/api/projects/{project_id}/subjects")
+def subjects(project_id: int, request: Request):
+    if settings.DEMO:
+        return {"version": 1, "ready": False, "images": {}, "clusters": []}
+    require_local(request)
+    return services.subject_summary(project_id)
+
+
+@app.get("/api/projects/{project_id}/subject-crop/{stem}/{detection_index}")
+def subject_crop(project_id: int, stem: str, detection_index: int):
+    if settings.DEMO:
+        raise HTTPException(404, "演示模式没有本地照片")
+    try:
+        return FileResponse(services.subject_crop(project_id, stem, detection_index), media_type="image/jpeg")
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/projects/{project_id}/clusters/{cluster_id}/selection/{value}")
+def select_cluster(project_id: int, cluster_id: str, value: str, request: Request):
+    try:
+        require_local(request)
+        return {"ok": True, "count": services.set_cluster_selection(project_id, cluster_id, value)}
+    except Exception as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 @app.post("/api/projects/{project_id}/jobs/{kind}")
 def job(project_id: int, kind: str, request: Request):

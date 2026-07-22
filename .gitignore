@@ -29,3 +29,9 @@ id_rsa*
 secrets/
 .idea/
 .vscode/
+.venv-fursee/
+engine/fursee_models/
+engine/models/fursee/
+*.npz
+*.pt
+*.safetensors

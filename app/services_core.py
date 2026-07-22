@@ -13,6 +13,7 @@ from pathlib import Path
 
 from PIL import Image
 from engine.src import furcolor_cli as image_core
+from engine.src.fursee_assets import inspect_assets
 
 from . import db, settings
 from .security import safe_path, safe_stem
@@ -123,6 +124,74 @@ def _project_runtime(project_id: int) -> Path:
     return path
 
 
+def subject_status(*, verify_hashes: bool = False) -> dict:
+    manifest = settings.ENGINE_ROOT / "config" / "fursee_model_manifest.json"
+    status = inspect_assets(
+        settings.FURSEE_MODEL_DIR,
+        manifest,
+        verify_hashes=verify_hashes,
+    )
+    python_path = Path(settings.FURSEE_PYTHON).expanduser().resolve(strict=False)
+    status["python_ready"] = python_path.is_file()
+    status["available"] = bool(status["ready"] and status["python_ready"])
+    status["python"] = str(python_path)
+    return status
+
+
+def subject_summary(project_id: int) -> dict:
+    project(project_id)
+    path = _project_runtime(project_id) / "subject_analysis.json"
+    if not path.exists():
+        return {
+            "version": 1,
+            "ready": False,
+            "selected_photo_count": 0,
+            "fursuit_detection_count": 0,
+            "face_candidate_count": 0,
+            "cluster_count": 0,
+            "noise_count": 0,
+            "images": {},
+            "clusters": [],
+        }
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["ready"] = True
+    return value
+
+
+def subject_crop(project_id: int, stem: str, detection_index: int) -> Path:
+    safe_stem(stem)
+    if detection_index < 0 or detection_index > 100:
+        raise ValueError("Invalid subject detection index")
+    summary = subject_summary(project_id)
+    record = summary.get("images", {}).get(stem)
+    if not record or not any(int(item.get("index", -1)) == detection_index for item in record.get("fursuits", [])):
+        raise LookupError("Fursuit subject crop does not exist")
+    path = _project_runtime(project_id) / "subject_crops" / f"{stem}_{detection_index}.jpg"
+    if not path.is_file():
+        raise LookupError("Fursuit subject crop does not exist")
+    return path
+
+
+def set_cluster_selection(project_id: int, cluster_id: str, value: str) -> int:
+    if not re.fullmatch(r"C\d{3,5}", cluster_id):
+        raise ValueError("Invalid cluster identifier")
+    if value not in {"keep", "reject", "unset"}:
+        raise ValueError("Unknown selection state")
+    summary = subject_summary(project_id)
+    cluster = next((item for item in summary.get("clusters", []) if item.get("id") == cluster_id), None)
+    if cluster is None:
+        raise LookupError("Subject cluster does not exist")
+    stems = sorted(set(cluster.get("image_stems", [])))
+    for stem in stems:
+        safe_stem(stem)
+        db.run(
+            "UPDATE photos SET selection=? WHERE project_id=? AND stem=?",
+            (value, project_id, stem),
+        )
+    db.audit(project_id, "selection.cluster_changed", {"cluster": cluster_id, "value": value, "count": len(stems)})
+    return len(stems)
+
+
 def engine_config(project_id: int) -> Path:
     p = project(project_id)
     root = _project_runtime(project_id)
@@ -136,6 +205,14 @@ def engine_config(project_id: int) -> Path:
         "selection_mode": p["selection_mode"], "eye_annotations": str(root / "eye_annotations.json"),
         "face_model": str(settings.ENGINE_ROOT / "models" / "face_detection_yunet_2023mar.onnx"),
         "face_memory": str(root / "face_memory.json"), "watermark_path": p["watermark_path"],
+        "fursee_model_dir": settings.FURSEE_MODEL_DIR,
+        "fursee_model_manifest": str(settings.ENGINE_ROOT / "config" / "fursee_model_manifest.json"),
+        "subject_analysis": str(root / "subject_analysis.json"),
+        "subject_embeddings": str(root / "subject_embeddings.npz"),
+        "subject_crops": str(root / "subject_crops"),
+        "fursee_fursuit_confidence": 0.45, "fursee_face_confidence": 0.45,
+        "fursee_image_size": 1280, "fursee_embedding_batch_size": 2, "subject_max_side": 2400,
+        "subject_exposure_strength": 0.65,
         "watermark_opacity": 0.8, "watermark_width_ratio": 0.06, "watermark_margin_ratio": 0.015,
         "style_strength": 0.72, "max_side": 1400, "delivery_max_side": 3200,
         "delivery_jpeg_quality": 91, "privacy_process_review": False, "include_edited": False,
@@ -150,10 +227,14 @@ def _engine_python() -> str:
     return str(bundled if bundled.exists() else Path(sys.executable))
 
 
+def _job_python(kind: str) -> str:
+    return str(Path(settings.FURSEE_PYTHON).expanduser().resolve()) if kind == "subject" else _engine_python()
+
+
 def start_job(project_id: int, kind: str) -> int:
     if settings.DEMO:
         raise PermissionError("云端演示模式禁止处理照片")
-    scripts = {"analyze": "run_job_v3_final.py", "render": "render_v3_pixel_reference.py",
+    scripts = {"subject": "run_subject_job.py", "analyze": "run_job_v3_final.py", "render": "render_v3_pixel_reference.py",
                "face-review": "run_review_job.py", "eye-review": "run_eye_annotation_job.py"}
     if kind not in scripts:
         raise ValueError("未知任务类型")
@@ -165,7 +246,7 @@ def start_job(project_id: int, kind: str) -> int:
 
     def worker() -> None:
         db.run("UPDATE jobs SET status='running',updated_at=? WHERE id=?", (db.now(), job_id))
-        command = [_engine_python(), str(script), "--config", str(config)]
+        command = [_job_python(kind), str(script), "--config", str(config)]
         try:
             child_env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
             result = subprocess.run(command, text=True, capture_output=True, encoding="utf-8", errors="replace", env=child_env)

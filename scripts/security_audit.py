@@ -2,7 +2,7 @@ from __future__ import annotations
 import re, subprocess, sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-BAD_SUFFIX={".arw",".jpg",".jpeg",".png",".zip",".pem",".key",".sqlite",".db",".onnx"}
+BAD_SUFFIX={".arw",".jpg",".jpeg",".png",".zip",".pem",".key",".sqlite",".db",".onnx",".pt",".safetensors",".npz"}
 TEXT_SUFFIX={".py",".js",".css",".html",".md",".txt",".json",".yml",".yaml",".toml",".ps1",".sh",".example"}
 patterns={
   "private key":re.compile(r"BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY"),
@@ -29,7 +29,7 @@ for path in candidates():
     for label,pattern in patterns.items():
         if pattern.search(text):issues.append(f"{label}: {rel}")
 if issues:
-    print("FAIL — sensitive or non-source artifacts detected:")
+    print("FAIL - sensitive or non-source artifacts detected:")
     for issue in sorted(set(issues)):print(f" - {issue}")
     sys.exit(1)
-print("PASS — Git publication candidates contain no known photos, credentials, private paths, model weights, or instance identifiers.")
+print("PASS - Git publication candidates contain no known photos, credentials, private paths, model weights, or instance identifiers.")

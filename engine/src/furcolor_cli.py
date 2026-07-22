@@ -173,7 +173,7 @@ class FacePresenceDetector:
             str(model), "", (320, 320), threshold, 0.3, 5000
         )
 
-    def detect(self, rgb: np.ndarray) -> list[dict[str, Any]]:
+    def detect(self, rgb: np.ndarray, image_id: str | None = None) -> list[dict[str, Any]]:
         h, w = rgb.shape[:2]
         scale = min(1.0, self.max_side / max(h, w))
         small = cv2.resize(rgb, (max(1, round(w * scale)), max(1, round(h * scale))), interpolation=cv2.INTER_AREA)
@@ -335,7 +335,7 @@ def batch(args: argparse.Namespace) -> int:
         try:
             rgb = load_rgb(path, args.max_side)
             anchor, distance = find_anchor(rgb, path.stem, anchors)
-            faces = detector.detect(rgb)
+            faces = detector.detect(rgb, path.stem)
             risk = risk_level(faces)
             styled = apply_anchor_style(rgb, anchor, args.style_strength)
             private = blur_regions(styled, faces)

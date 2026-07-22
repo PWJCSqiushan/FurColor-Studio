@@ -20,7 +20,7 @@ import furcolor_cli as core
 
 def load_selection(path: Path, default_mode: str = "negative") -> dict:
     if path.exists():
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
     else:
         data = {"version": 1, "mode": default_mode, "choices": {}}
     data.setdefault("mode", default_mode)
