@@ -155,7 +155,10 @@ def jobs(project_id: int, request: Request):
 def delivery(project_id: int, payload: DeliveryIn, request: Request):
     try:
         require_local(request)
-        authorize_project_paths(services.project(project_id))
+        project_data = services.project(project_id)
+        authorize_project_paths(project_data)
+        destination = services.delivery_destination(project_data, payload.name)
+        authorize_picker_path(str(destination), "directory", must_exist=False)
         return services.deliver(project_id, payload.acknowledgements, payload.name, payload.make_zip)
     except Exception as exc:
         raise HTTPException(400, str(exc)) from exc

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import json
 import shutil
 import subprocess
@@ -18,6 +19,23 @@ from .security import safe_path, safe_stem
 
 EXTENSIONS = {".jpg", ".jpeg", ".arw"}
 QA_ITEMS = {"privacy", "mask", "exposure", "watermark"}
+
+
+def delivery_destination(project_data: dict, name: str) -> Path:
+    if not re.fullmatch(r"[\w-][\w.-]{0,79}", name, flags=re.UNICODE) or name in {".", ".."}:
+        raise ValueError("交付包名称只能包含文字、数字、下划线、短横线和点，且不能是路径")
+    output = Path(project_data["output_dir"]).expanduser().resolve(strict=False)
+    destination = (output.parent / name).resolve(strict=False)
+    if destination.parent != output.parent:
+        raise ValueError("交付目录必须位于渲染输出目录的同级目录")
+    for key in ("source_dir", "edited_dir", "analysis_dir", "output_dir"):
+        raw = str(project_data.get(key, "")).strip()
+        if not raw:
+            continue
+        protected = Path(raw).expanduser().resolve(strict=False)
+        if destination == protected or destination in protected.parents or protected in destination.parents:
+            raise ValueError(f"交付目录不能与 {key} 重叠")
+    return destination
 
 
 def project(project_id: int) -> dict:
@@ -169,7 +187,7 @@ def deliver(project_id: int, acknowledgements: list[str], name: str = "delivery"
         raise PermissionError("必须完成全部四项人工质检，服务器才会生成交付包")
     p = project(project_id)
     source = safe_path(p["output_dir"], True)
-    destination = safe_path(str(source.parent / name), False)
+    destination = safe_path(str(delivery_destination(p, name)), False)
     destination.mkdir(parents=True, exist_ok=True)
     allowed = selected_stems(project_id)
     items: list[dict] = []

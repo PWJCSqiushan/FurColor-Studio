@@ -20,5 +20,7 @@ def test_selection_semantics_delivery_gate_and_path_isolation(monkeypatch):
         db.run("UPDATE projects SET selection_mode='negative' WHERE id=?",(pid,));assert services.selected_stems(pid)=={"keep_me","default_me"}
         result=services.deliver(pid,["privacy","mask","exposure","watermark"],"delivery_test")
         assert result["count"]==2;assert {x["file"] for x in result["files"]}=={"keep_me.jpg","default_me.jpg"}
+        with pytest.raises(ValueError):services.delivery_destination(services.project(pid),"..")
+        with pytest.raises(ValueError):services.delivery_destination(services.project(pid),output.name)
         with pytest.raises(PermissionError):security.safe_path(str(Path.cwd().parent/"outside"),False)
     finally:shutil.rmtree(root,ignore_errors=True)

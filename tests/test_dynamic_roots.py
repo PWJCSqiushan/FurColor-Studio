@@ -69,3 +69,36 @@ def test_trusted_project_submission_authorizes_multiple_drives(monkeypatch):
         assert (data_dir / "authorized_roots.json").exists()
     finally:
         shutil.rmtree(base, ignore_errors=True)
+
+def test_scoped_delivery_folder_authorization(monkeypatch):
+    base = Path.cwd() / "runtime" / f"delivery-roots-test-{uuid.uuid4().hex}"
+    output = base / "drafts"
+    data_dir = base / "private-runtime"
+    output.mkdir(parents=True)
+    data_dir.mkdir(parents=True)
+    try:
+        monkeypatch.setenv("FURCOLOR_MODE", "local")
+        monkeypatch.setenv("FURCOLOR_ALLOWED_ROOTS", str(output))
+        monkeypatch.setenv("FURCOLOR_DATA_DIR", str(data_dir))
+        from app import settings
+
+        importlib.reload(settings)
+        import app.security as security
+        import app.services_core as services_core
+
+        importlib.reload(security)
+        importlib.reload(services_core)
+        project = {
+            "source_dir": str(base / "source"),
+            "edited_dir": str(base / "edited"),
+            "analysis_dir": str(base / "analysis"),
+            "output_dir": str(output),
+        }
+        destination = services_core.delivery_destination(project, "delivery")
+        with pytest.raises(PermissionError):
+            security.safe_path(str(destination), must_exist=False)
+        security.authorize_picker_path(str(destination), "directory", must_exist=False)
+        assert security.safe_path(str(destination), must_exist=False) == destination
+        assert destination.parent == output.parent
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
