@@ -50,6 +50,12 @@ def start_job(project_id:int,kind:str)->int:
     running=db.one("SELECT id FROM jobs WHERE project_id=? AND kind=? AND status IN ('queued','running')",(project_id,kind))
     if running:raise RuntimeError(f"Job #{running['id']} of this type is still running")
     p=project(project_id)
+    if kind=="subject":
+        status=core.subject_status()
+        if not status.get("ready"):
+            raise FileNotFoundError(status.get("error") or "Fursee model files are missing or incomplete")
+        if not status.get("python_ready"):
+            raise FileNotFoundError("Fursee Python environment is missing. Run install_fursee.ps1 first.")
     if kind=="analyze":
         model=settings.ENGINE_ROOT/"models"/"face_detection_yunet_2023mar.onnx"
         if not model.exists():raise FileNotFoundError(f"Face model missing: {model}")

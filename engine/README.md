@@ -1,10 +1,13 @@
 # Engine packaging notice
 
-`src/` contains the FurColor V3.3 local processing engine. Runtime assets are intentionally excluded:
+`src/` contains the FurColor 4.0 local processing engine. The original FurColor core remains usable with the lightweight `.venv`; the optional Fursee subject job runs through `.venv-fursee` as a separate process.
 
-- `models/*.onnx` — obtain and review the model/license separately;
+Runtime assets are intentionally excluded:
+
+- `models/*.onnx` — pinned YuNet is downloaded and verified locally;
+- Fursee `cut.pt`, `model.safetensors` and configuration files — referenced from an external local directory, never copied into Git;
 - `config/face_memory.json` — private learned feedback;
-- event manifests — may reveal file names and editing history;
-- photos, annotations, analysis reports and delivery files.
+- `subject_analysis.json`, subject crops and `subject_embeddings.npz` — project-private derived data;
+- event manifests, photos, annotations, analysis reports and delivery files.
 
-Copy a compatible YuNet face detector to `models/face_detection_yunet_2023mar.onnx` before local analysis. Replace `config/manifest.example.json` with a project-specific manifest selected in the UI.
+Run `install_local.ps1` for the base engine. Run `install_fursee.ps1 -ModelDirectory <path>` only after obtaining and reviewing the Fursee model package and its licenses. The adapter performs fixed size/SHA-256 verification before inference.

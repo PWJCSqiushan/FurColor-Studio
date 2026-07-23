@@ -1,9 +1,77 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FurColor Studio</title><link rel="stylesheet" href="/static/style.css"></head><body>
-<aside><div class="brand"><span>FC</span><div><b>FurColor</b><small>Studio · Local First</small></div></div><nav><button data-page="dashboard" class="active">工作台</button><button data-page="project">新建项目</button><button data-page="culling">选片</button><button data-page="workflow">处理流程</button><button data-page="delivery">质检与交付</button><button data-page="privacy">隐私与安全</button></nav><div class="mode">{{ '云端安全演示模式' if demo else '本地工作站模式' }}<small>照片上传：永久关闭</small></div></aside>
-<main><header><div><h1 id="title">摄影工作台</h1><p>从原片到可审计交付的本地工作流</p></div><div id="health" class="pill">检查服务…</div></header>
-<section id="dashboard" class="page active"><div class="hero"><div><em>PRIVACY-FIRST POST PRODUCTION</em><h2>让批量修图保持你的审美，<br>也尊重圈内隐私边界。</h2><p>路径、原片、人脸反馈与水印默认只存在于你的工作站。</p><button onclick="show('project')">创建新项目</button></div><div class="orb">F</div></div><div class="stats"><article><b id="projectCount">0</b><span>本地项目</span></article><article><b>0</b><span>云端原片</span></article><article><b>SHA-256</b><span>交付校验</span></article><article><b>Local</b><span>图像引擎</span></article></div><div class="notice" {% if not demo %}hidden{% endif %}>服务器仅展示产品流程和隐私设计，不接收照片、不读取路径、不运行模型。完整功能请在本地工作站使用。</div><div id="projects" class="cards"></div></section>
-<section id="project" class="page"><h2>建立本地项目</h2><p class="muted">“浏览”调用 Windows 原生选择器；服务器演示模式下全部禁用。</p><form id="projectForm" class="form"><label>项目名称<input name="name" required placeholder="2026 星缘节"></label><label>原片目录<div class="picker"><input name="source_dir" required><button type="button" data-pick="directory">浏览</button></div></label><label>手修参考目录<div class="picker"><input name="edited_dir"><button type="button" data-pick="directory">浏览</button></div></label><label>分析结果目录<div class="picker"><input name="analysis_dir" required><button type="button" data-pick="directory">浏览</button></div></label><label>修图输出目录<div class="picker"><input name="output_dir" required><button type="button" data-pick="directory">浏览</button></div></label><label>水印 PNG<div class="picker"><input name="watermark_path"><button type="button" data-pick="watermark">浏览</button></div></label><label>参考样片清单（JSON）<div class="picker"><input name="manifest_path"><button type="button" data-pick="manifest">浏览</button></div></label><label>选片模式<select name="selection_mode"><option value="negative">反选：默认保留，标废片</option><option value="positive">正选：只有明确保留才处理</option></select></label><button type="submit">保存并扫描原片</button></form></section>
-<section id="culling" class="page"><div class="sectionhead"><div><h2>选片台</h2><p class="muted">保留 / 废片 / 恢复默认；选择会即时写入本地数据库。</p></div><select id="projectSelect"></select></div><div id="photoGrid" class="photo-grid"></div></section>
-<section id="workflow" class="page"><h2>处理流水线</h2><div class="steps"><article><i>01</i><h3>隐私与参考分析</h3><p>仅分析有效选片，建立真人脸候选、场景色彩和曝光风险。</p><button onclick="runJob('analyze')">开始分析</button></article><article><i>02</i><h3>人工隐私复核</h3><p>确认真人脸，纠正兽耳误检；反馈保存在项目私有目录。</p><button onclick="runJob('face-review')">打开人脸复核</button></article><article><i>03</i><h3>自适应眼睛蒙版</h3><p>按每张照片的大小、角度与形状分别标注，不复用固定蒙版。</p><button onclick="runJob('eye-review')">标注兽装眼睛</button></article><article><i>04</i><h3>V3.3 渲染</h3><p>样片颜色映射、主体安全曝光、眼睛增强、可选水印。</p><button onclick="runJob('render')">开始渲染</button></article></div><pre id="jobLog">等待任务…</pre></section>
-<section id="delivery" class="page"><h2>质检与交付</h2><p class="muted">确认会由后端再次验证；少一项都不能生成交付包。</p><div class="checklist"><label><input type="checkbox" value="privacy">已检查背景真人脸、镜面与屏幕反射</label><label><input type="checkbox" value="mask">已检查兽耳误打码与眼睛蒙版边缘</label><label><input type="checkbox" value="exposure">已检查白毛高光、黑毛细节、肤色与白平衡</label><label><input type="checkbox" value="watermark">已检查水印、胸牌、二维码和最终裁切</label></div><label class="delivery-name">交付包名称<input id="deliveryName" value="delivery"></label><button onclick="deliver()">生成交付目录、SHA-256 清单与 ZIP</button><div id="deliveryResult"></div></section>
-<section id="privacy" class="page"><h2>隐私与商业安全</h2><div class="policy"><article><b>照片不出本机</b><p>云端 demo 没有上传 API；本地服务默认只监听 127.0.0.1。</p></article><article><b>交付可审计</b><p>记录处理数量、人工复核声明，并为每张成片生成 SHA-256。</p></article><article><b>GitHub 脱敏</b><p>排除照片、绝对路径、反馈记忆、人脸框、水印、模型、密钥和数据库。</p></article><article><b>服务器隔离</b><p>独立容器、独立目录、独立端口；不挂载照片目录，不接触 8888 现有服务。</p></article></div></section></main><div id="toast"></div><script>window.FURCOLOR={demo:{{ 'true' if demo else 'false' }},token:"{{ local_token }}"};</script><script src="/static/app.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FurColor Studio</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<aside>
+  <div class="brand"><span>FC</span><div><b>FurColor</b><small>Studio · Local First</small></div></div>
+  <nav>
+    <button data-page="dashboard" class="active">工作台</button>
+    <button data-page="project">新建项目</button>
+    <button data-page="culling">选片</button>
+    <button data-page="subjects">兽装分组</button>
+    <button data-page="workflow">处理流程</button>
+    <button data-page="delivery">质检与交付</button>
+    <button data-page="privacy">隐私与安全</button>
+  </nav>
+  <div class="mode">{{ '云端安全演示模式' if demo else '本地工作站模式' }}<small>照片上传：永久关闭</small></div>
+</aside>
+<main>
+  <header><div><h1 id="title">摄影工作台</h1><p>从原片到可审计交付的本地工作流</p></div><div id="health" class="pill">检查服务…</div></header>
+
+  <section id="dashboard" class="page active">
+    <div class="hero"><div><em>FURSUIT-AWARE POST PRODUCTION</em><h2>让批量修图理解画面主体，<br>也尊重圈内隐私边界。</h2><p>路径、原片、人脸反馈、兽装特征与水印默认只存在于你的工作站。</p><button onclick="show('project')">创建新项目</button></div><div class="orb">F</div></div>
+    <div class="stats"><article><b id="projectCount">0</b><span>本地项目</span></article><article><b>0</b><span>云端原片</span></article><article><b id="subjectEngine">检查中</b><span>主体智能层</span></article><article><b>SHA-256</b><span>交付校验</span></article></div>
+    <div class="notice" {% if not demo %}hidden{% endif %}>服务器仅展示产品流程和隐私设计，不接收照片、不读取路径、不运行模型。完整功能请在本地工作站使用。</div>
+    <div id="projects" class="cards"></div>
+  </section>
+
+  <section id="project" class="page">
+    <h2>建立本地项目</h2><p class="muted">“浏览”调用 Windows 原生选择器；服务器演示模式下全部禁用。</p>
+    <form id="projectForm" class="form">
+      <label>项目名称<input name="name" required placeholder="2026 星缘节"></label>
+      <label>原片目录<div class="picker"><input name="source_dir" required><button type="button" data-pick="directory">浏览</button></div></label>
+      <label>手修参考目录<div class="picker"><input name="edited_dir"><button type="button" data-pick="directory">浏览</button></div></label>
+      <label>分析结果目录<div class="picker"><input name="analysis_dir" required><button type="button" data-pick="directory">浏览</button></div></label>
+      <label>修图输出目录<div class="picker"><input name="output_dir" required><button type="button" data-pick="directory">浏览</button></div></label>
+      <label>水印 PNG<div class="picker"><input name="watermark_path"><button type="button" data-pick="watermark">浏览</button></div></label>
+      <label>参考样片清单（JSON）<div class="picker"><input name="manifest_path"><button type="button" data-pick="manifest">浏览</button></div></label>
+      <label>选片模式<select name="selection_mode"><option value="negative">反选：默认保留，标废片</option><option value="positive">正选：只有明确保留才处理</option></select></label>
+      <button type="submit">保存并扫描原片</button>
+    </form>
+  </section>
+
+  <section id="culling" class="page"><div class="sectionhead"><div><h2>选片台</h2><p class="muted">保留 / 废片 / 恢复默认；完成主体分析后，这里也会显示匿名兽装分组。</p></div><select id="projectSelect"></select></div><div id="photoGrid" class="photo-grid"></div></section>
+
+  <section id="subjects" class="page">
+    <div class="sectionhead"><div><h2>兽装主体与匿名分组</h2><p class="muted">只在当前项目内聚合同一兽装的画面，便于连拍选片与主体检查；不识别人名，不跨项目关联。</p></div><button onclick="runJob('subject')">运行主体分析</button></div>
+    <div id="subjectStatus" class="notice">正在检查 Fursee 模型环境…</div>
+    <div id="subjectStats" class="stats compact"></div>
+    <div id="subjectClusters" class="cluster-grid"></div>
+  </section>
+
+  <section id="workflow" class="page">
+    <h2>处理流水线</h2>
+    <div class="steps">
+      <article><i>01</i><h3>兽装主体分析</h3><p>识别兽头与人脸候选，建立仅限本项目的匿名兽装分组和主体框。</p><button onclick="runJob('subject')">分析主体</button></article>
+      <article><i>02</i><h3>隐私与参考分析</h3><p>融合 YuNet、记忆模型和主体证据，建立人脸候选、场景色彩和曝光风险。</p><button onclick="runJob('analyze')">开始分析</button></article>
+      <article><i>03</i><h3>人工隐私复核</h3><p>确认真人脸，纠正兽耳误检；Fursee 单独发现的人脸只进入人工复核。</p><button onclick="runJob('face-review')">打开人脸复核</button></article>
+      <article><i>04</i><h3>自适应眼睛蒙版</h3><p>按每张照片的大小、角度与形状分别标注，不复用固定蒙版。</p><button onclick="runJob('eye-review')">标注兽装眼睛</button></article>
+      <article><i>05</i><h3>V4 草稿渲染</h3><p>样片风格、全局与主体分层曝光、眼睛增强、隐私处理和可选水印。</p><button onclick="runJob('render')">开始渲染</button></article>
+    </div>
+    <pre id="jobLog">等待任务…</pre>
+  </section>
+
+  <section id="delivery" class="page"><h2>质检与交付</h2><p class="muted">确认会由后端再次验证；少一项都不能生成交付包。</p><div class="checklist"><label><input type="checkbox" value="privacy">已检查背景真人脸、镜面与屏幕反射</label><label><input type="checkbox" value="mask">已检查兽耳误打码与眼睛蒙版边缘</label><label><input type="checkbox" value="exposure">已检查白毛高光、黑毛细节、主体曝光与白平衡</label><label><input type="checkbox" value="watermark">已检查水印、胸牌、二维码和最终裁切</label></div><label class="delivery-name">交付包名称<input id="deliveryName" value="delivery"></label><button onclick="deliver()">生成交付目录、SHA-256 清单与 ZIP</button><div id="deliveryResult"></div></section>
+
+  <section id="privacy" class="page"><h2>隐私与商业安全</h2><div class="policy"><article><b>照片不出本机</b><p>云端 demo 没有上传 API；本地服务默认只监听 127.0.0.1。</p></article><article><b>主体特征不外流</b><p>特征向量只写入项目私有运行目录，不进 Git，不建立跨项目或真人身份库。</p></article><article><b>人脸结果保守使用</b><p>双模型用于减少漏检与兽耳误检；单一模型的新候选仍需人工确认。</p></article><article><b>交付可审计</b><p>记录处理数量、人工复核声明，并为每张成片生成 SHA-256。</p></article><article><b>GitHub 脱敏</b><p>排除照片、绝对路径、反馈记忆、检测结果、水印、权重、密钥和数据库。</p></article><article><b>服务器隔离</b><p>展示站不挂载本地照片或模型目录，不接触其他服务的数据。</p></article></div></section>
+</main>
+<div id="toast"></div>
+<script>window.FURCOLOR={demo:{{ 'true' if demo else 'false' }},token:"{{ local_token }}"};</script>
+<script src="/static/app.js"></script>
+</body>
+</html>

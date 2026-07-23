@@ -156,6 +156,88 @@ def apply_exposure_tone(rgb: np.ndarray, analysis: dict[str, Any]) -> np.ndarray
     return np.clip(out * 255.0, 0, 255).astype(np.uint8)
 
 
+def analyze_subject_exposure(
+    rgb: np.ndarray,
+    boxes: list[dict[str, Any]],
+    global_analysis: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Measure detected fursuit heads separately from the room/background."""
+    height, width = rgb.shape[:2]
+    global_ev = float(global_analysis.get("recommended_ev", 0.0))
+    global_mid = max(float(global_analysis.get("p50", 0.5)), 0.03)
+    results = []
+    for index, box in enumerate(boxes):
+        pad = round(0.06 * max(int(box["w"]), int(box["h"])))
+        x1 = max(0, int(box["x"]) - pad)
+        y1 = max(0, int(box["y"]) - pad)
+        x2 = min(width, int(box["x"] + box["w"]) + pad)
+        y2 = min(height, int(box["y"] + box["h"]) + pad)
+        crop = rgb[y1:y2, x1:x2]
+        if crop.size == 0:
+            continue
+        analysis = analyze_exposure(crop)
+        base_delta = float(analysis["recommended_ev"]) - global_ev
+        subject_mid = max(float(analysis.get("p50", global_mid)), 0.02)
+        relative_gap_ev = math.log2(global_mid / subject_mid)
+        scene = analysis.get("scene_tonality", "mixed")
+        desired_gap = 1.20 if scene == "black_dominant" else (-0.55 if scene == "white_dominant" else 0.30)
+        relative_delta = (relative_gap_ev - desired_gap) * 0.55
+        if scene == "black_dominant":
+            candidate_delta = max(base_delta, relative_delta)
+        elif scene == "white_dominant" and relative_delta < 0:
+            candidate_delta = min(base_delta, relative_delta)
+        else:
+            candidate_delta = base_delta * 0.65 + relative_delta * 0.35
+        if float(analysis.get("highlight_clipped_ratio", 0.0)) > 0.002 or float(analysis.get("p99", 0.0)) > 0.982:
+            candidate_delta = min(candidate_delta, -0.10)
+        delta = float(np.clip(candidate_delta, -0.38, 0.38))
+        results.append({
+            "index": int(box.get("index", index)),
+            "cluster_id": box.get("cluster_id"),
+            "bbox": {"x": x1, "y": y1, "w": x2 - x1, "h": y2 - y1},
+            "detector_score": round(float(box.get("score", 0.0)), 5),
+            "recommended_delta_ev": round(delta, 4),
+            "relative_gap_ev": round(relative_gap_ev, 4),
+            "desired_gap_ev": desired_gap,
+            "analysis": analysis,
+        })
+    return results
+
+
+def apply_subject_exposure_tone(
+    rgb: np.ndarray,
+    subjects: list[dict[str, Any]],
+    strength: float = 0.65,
+) -> np.ndarray:
+    """Apply conservative, feathered local tone corrections to fursuit heads."""
+    out = rgb.copy()
+    height, width = out.shape[:2]
+    effective_strength = float(np.clip(strength, 0.0, 1.0))
+    for subject in subjects:
+        box = subject["bbox"]
+        x1 = max(0, int(box["x"]))
+        y1 = max(0, int(box["y"]))
+        x2 = min(width, x1 + int(box["w"]))
+        y2 = min(height, y1 + int(box["h"]))
+        roi = out[y1:y2, x1:x2]
+        if roi.size == 0:
+            continue
+        local = dict(subject["analysis"])
+        local["recommended_ev"] = float(subject["recommended_delta_ev"])
+        local["highlight_compression"] = min(float(local.get("highlight_compression", 0.0)), 0.48)
+        local["shadow_lift"] = min(float(local.get("shadow_lift", 0.0)), 0.075)
+        corrected = apply_exposure_tone(roi, local).astype(np.float32)
+        yy, xx = np.mgrid[0:roi.shape[0], 0:roi.shape[1]]
+        cx, cy = (roi.shape[1] - 1) / 2.0, (roi.shape[0] - 1) / 2.0
+        nx = (xx - cx) / max(roi.shape[1] * 0.48, 1.0)
+        ny = (yy - cy) / max(roi.shape[0] * 0.48, 1.0)
+        mask = np.clip(1.0 - (nx * nx + ny * ny), 0.0, 1.0)
+        mask = cv2.GaussianBlur(mask.astype(np.float32), (0, 0), sigmaX=max(2.0, min(roi.shape[:2]) * 0.035))
+        mask = np.clip(mask * effective_strength, 0.0, 1.0)[:, :, None]
+        original = roi.astype(np.float32)
+        out[y1:y2, x1:x2] = np.clip(corrected * mask + original * (1.0 - mask), 0, 255).astype(np.uint8)
+    return out
+
 def enhance_eyes(rgb: np.ndarray, points: list[dict[str, float]], exposure_ev: float = 0.18,
                  saturation: float = 25.0) -> np.ndarray:
     out = rgb.copy()

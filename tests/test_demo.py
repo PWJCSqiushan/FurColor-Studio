@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from app.main import app
 with TestClient(app) as c:
     h=c.get('/api/health');assert h.status_code==200 and h.json()['uploads'] is False
+    assert h.json()['subject_intelligence']=={'available':False,'model':'disabled'}
+    assert c.get('/api/projects/123/subjects').json()=={'version':1,'ready':False,'images':{},'clusters':[]}
     p=c.post('/api/projects',json={'name':'x','source_dir':'C:/tmp'});assert p.status_code==400
     assert c.get('/api/projects').json()==[]
 """ % str(tmp_path).replace('\\','\\\\')

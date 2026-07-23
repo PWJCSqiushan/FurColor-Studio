@@ -16,7 +16,7 @@ if (Test-Path -LiteralPath $envFile) {
   else {
     $value = $line.Substring('FURCOLOR_ALLOWED_ROOTS='.Length)
     foreach ($item in $value.Split(';',[System.StringSplitOptions]::RemoveEmptyEntries)) {
-      if (-not (Test-Path -LiteralPath $item.Trim() -PathType Container)) { $errors.Add("Allowed root does not exist: $($item.Trim())") }
+      if (-not (Test-Path -LiteralPath $item.Trim() -PathType Container)) { $warnings.Add("Allowed root is currently offline or missing: $($item.Trim())") }
     }
   }
 }
@@ -29,7 +29,26 @@ if (Test-Path -LiteralPath $model) {
   $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $model).Hash.ToLowerInvariant()
   if ($actual -ne $expected) { $warnings.Add('The face model is not the pinned official YuNet file. Continue only if you intentionally supplied a compatible model.') }
 }
-foreach ($warning in $warnings) { Write-Warning $warning }
+if (Test-Path -LiteralPath $envFile) {
+  $furseeModelLine = Get-Content -LiteralPath $envFile -Encoding UTF8 | Where-Object { $_ -like 'FURCOLOR_FURSEE_MODEL_DIR=*' } | Select-Object -First 1
+  $furseePythonLine = Get-Content -LiteralPath $envFile -Encoding UTF8 | Where-Object { $_ -like 'FURCOLOR_FURSEE_PYTHON=*' } | Select-Object -First 1
+  if ($furseeModelLine) {
+    $furseeModel = $furseeModelLine.Substring('FURCOLOR_FURSEE_MODEL_DIR='.Length)
+    if (-not (Test-Path -LiteralPath $furseeModel -PathType Container)) {
+      $warnings.Add("Optional Fursee model directory does not exist: $furseeModel")
+    } elseif (Test-Path -LiteralPath $python) {
+      & $python 'engine\src\verify_fursee.py' --model-dir $furseeModel --manifest 'engine\config\fursee_model_manifest.json'
+      if ($LASTEXITCODE -ne 0) { $warnings.Add('Optional Fursee model package is incomplete or does not match expected file sizes.') }
+    }
+    $furseePython = if ($furseePythonLine) { $furseePythonLine.Substring('FURCOLOR_FURSEE_PYTHON='.Length) } else { (Join-Path $root '.venv-fursee\Scripts\python.exe') }
+    if (-not (Test-Path -LiteralPath $furseePython -PathType Leaf)) {
+      $warnings.Add('Optional Fursee Python environment is missing. Run install_fursee.ps1.')
+    } else {
+      & $furseePython -c "import torch, ultralytics, transformers, safetensors; print('Fursee imports: OK')"
+      if ($LASTEXITCODE -ne 0) { $warnings.Add('One or more optional Fursee dependencies cannot be imported.') }
+    }
+  }
+}foreach ($warning in $warnings) { Write-Warning $warning }
 if ($errors.Count -gt 0) {
   foreach ($message in $errors) { Write-Host "ERROR: $message" -ForegroundColor Red }
   exit 1
